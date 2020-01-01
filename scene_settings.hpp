@@ -1,5 +1,0 @@
-#ifndef SCENE_SETTINGS
-#define SCENE_SETTINGS
-
-
-#endif // SCENE_SETTINGS

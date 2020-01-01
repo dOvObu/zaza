@@ -10,8 +10,8 @@ enum class sType {unknown_, object_, int_, uint_, float_, double_, str_, vec_, m
 
 struct Serializable {
 	static std::string depth;
-	std::set<Serializable*> shown;
-	std::set<Serializable*> ptrs;
+	static std::set<Serializable*> shown;
+	static std::set<Serializable*> ptrs;
 	virtual sType type(){return sType::unknown_;}
 	virtual bool is(sType t){return true;}
 	virtual struct sMap* getFields(){
