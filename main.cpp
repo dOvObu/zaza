@@ -3,9 +3,6 @@
 
 #include <GLFW/glfw3.h>
 #include <SOIL2/SOIL2.h>
-#include <glm.hpp>
-#include <gtc/matrix_transform.hpp>
-#include <gtc/type_ptr.hpp>
 #include <exception>
 #include <iostream>
 
@@ -15,7 +12,7 @@
 int main()
 {
    try {
-      Win wnd = {};
+      Win wnd = {"window_settings.txt"};
       wnd.run();
 
    } catch (std::exception const &err) {

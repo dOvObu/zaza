@@ -1,8 +1,11 @@
 #ifndef WIN_HPP
 #define WIN_HPP
 
-#include <string>
 #include <memory>
+#include <fstream>
+#include <iostream>
+#include <sys/stat.h>
+#include <string>
 
 #include "serializable.hpp"
 #include "irenderer.hpp"
@@ -17,6 +20,7 @@ struct WinSettings : Serializable {
 
    sFields
    __(title)
+   __(renderer)
    __(width)
    __(height)
    __(fullscreen)
