@@ -32,11 +32,20 @@ struct Serializable {
    DEF_SERIALIZABLE(Float, float, float_)
    DEF_SERIALIZABLE(Double, double, double_)
    DEF_SERIALIZABLE(Str, std::string, str_)
-   DEF_SERIALIZABLE(Vec, std::vector<Serializable*>, vec_)
    DEF_SERIALIZABLE(Ptr, Serializable*, ptr_)
    DEF_SERIALIZABLE(Map, filed, map_)
 #undef field
 #undef DEF_SERIALIZABLE
+
+struct sVec : Serializable {
+  std::vector<Serializable*> n;
+  sVec() {}
+  sVec(std::vector<Serializable> i):n { for (auto& it : n)it->marked = true; }
+  ~sVec() { for(auto& it : n) it->marked = false; }
+  sType type() override {return sType::vec_;}
+  bool is(sType t) override {return t == sType::vec_;}
+};
+
 //std::vector<std::unique_ptr<Serializable>> serializable_pool;
 
 
