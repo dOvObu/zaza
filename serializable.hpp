@@ -12,7 +12,7 @@ enum class sType {unknown_, object_, int_, uint_, float_, double_, str_, vec_, m
 
 struct Serializable {
 	static std::string depth;
-	bool marked = false;
+	bool marked{ false };
 	virtual sType type(){return sType::unknown_;}
 	virtual bool is(sType t){return true;}
 	virtual struct sMap* get_fields(){return nullptr;}
@@ -48,14 +48,12 @@ struct sVec : Serializable {
 
 //std::vector<std::unique_ptr<Serializable>> serializable_pool;
 
-
 static std::ostream& operator << (std::ostream& s, sInt& i) {s << i.n; return s;}
 static std::ostream& operator << (std::ostream& s, sUint& i) {s << i.n; return s;}
 static std::ostream& operator << (std::ostream& s, sFloat& i) {s << i.n; return s;}
 static std::ostream& operator << (std::ostream& s, sDouble& i) {s << i.n; return s;}
 static std::ostream& operator << (std::ostream& s, sStr& i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream& s, sPtr& i) {/*s << i.n; if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/ return s;}
-
+static std::ostream& operator << (std::ostream& s, sPtr& i) {s << i.n; i.n->marked = true; /*if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/ return s;}
 static std::ostream& operator << (std::ostream& s, sVec& l);
 static std::ostream& operator << (std::ostream& s, sMap& l);
 #define INCASE(Name, sType_, val) case sType::sType_: s << *reinterpret_cast<s ## Name*>(val); s << '\n'; break;
@@ -68,24 +66,33 @@ static std::ostream& operator << (std::ostream& s, sMap& l);
 		default: s << '\n'; break; \
 	}
 
-static std::ostream& operator << (std::ostream& s, sVec& l) {
+
+static std::ostream& operator << (std::ostream& s, sVec& l)
+{
    s << "[\n";
 	for(auto& i : l.n) {
-			s << l.depth;
-			CASES(i)
+      s << l.depth;
+      CASES(i)
 	}
 	s << l.depth << "]\n";
 	return s;
 }
-static std::ostream& operator << (std::ostream& s, sMap& l) {
-  for(auto& i : l.n) {
-		s << l.depth << i.first << " : ";
-    CASES(i.second)
-  }
-	return s;
-}
-static std::istream& operator >> (std::istream& s, sMap& l) {
 
+
+static std::ostream& operator << (std::ostream& s, sMap& l)
+{
+   for(auto& i : l.n) {
+      s << l.depth << i.first;
+      if (i.second->marked) s << '[' << i.second << ']';
+      s << " : ";
+      CASES(i.second)
+   }
+   return s;
+}
+
+
+static std::istream& operator >> (std::istream& s, sMap& l)
+{
    std::vector<sMap*> map_stack;
    std::vector<sVec*> vec_stack;
    std::vector<sInt*> int_stack;
@@ -135,7 +142,7 @@ static std::istream& operator >> (std::istream& s, sMap& l) {
                   map_stack.push_back(reinterpret_cast<sMap*>(map_stack.back()->n[key]));
                } else if (type == sType::vec_) {
                   vec_stack.push_back(reinterpret_cast<sVec*>(map_stack.back()->n[key]));
-               } else if (type == sType::vec_) {
+               } else if (type == sType::ptr_) {
                   ptr_stack.push_back(reinterpret_cast<sPtr*>(map_stack.back()->n[key]));
                }
                key.clear();
@@ -161,18 +168,12 @@ static std::istream& operator >> (std::istream& s, sMap& l) {
                   bf.clear();
                } else if (type == sType::int_) {
                   int_stack.back()->n = std::stoul(bf);
-                  bf.clear();               } else if (type == sType::uint_) {
+                  bf.clear();
+               } else if (type == sType::uint_) {
                   uint_stack.back()->n = std::stoi(bf);
                   bf.clear();
                } else if (type == sType::str_) {
-
-
-                  std::cout << "[bf1]" << bf << std::endl;
                   str_stack.back()->n = bf;
-                  std::cout << "[bf2]" << bf << std::endl;
-
-
-
                   bf.clear();
                } else {
                   type_stack.push_back(type);
@@ -186,6 +187,7 @@ static std::istream& operator >> (std::istream& s, sMap& l) {
       }
    }
 }
+
 
 #undef INCASE
 
