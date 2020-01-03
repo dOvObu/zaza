@@ -17,6 +17,7 @@ struct WinSettings : Serializable {
    sUint width    = 640;
    sUint height   = 420;
    sInt fullscreen= 0;
+   sPtr  Im       = { this };
 
    sFields
    __(title)
@@ -24,6 +25,7 @@ struct WinSettings : Serializable {
    __(width)
    __(height)
    __(fullscreen)
+   __(Im)
    sEnd
 };
 
