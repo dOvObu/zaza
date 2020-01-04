@@ -65,7 +65,7 @@ void OpenglRenderer::setup(glm::uvec2 sz, int &width, int &height, char const *t
 
    glfwSetInputMode(hwnd, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-   glewExperimental = GL_TRUE;
+   //glewExperimental = GL_TRUE;
    if (glewInit() != GLEW_OK) {
       glfwTerminate();
       throw std::runtime_error("Error! Can't init glew");

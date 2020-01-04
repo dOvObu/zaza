@@ -1,6 +1,0 @@
-Im[0x23f980] : 
-fullscreen : 0
-height : 420
-renderer : OpenGL
-title : Default Title
-width : 640

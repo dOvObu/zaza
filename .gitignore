@@ -4,3 +4,10 @@
 *.layout
 bin/*
 obj/*
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+Debug/*
+Release/*
+.git/*
+x64/*
