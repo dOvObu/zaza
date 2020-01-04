@@ -8,39 +8,44 @@
 #include <fstream>
 #include <iostream>
 
-enum class sType {unknown_, object_, int_, uint_, float_, double_, str_, vec_, map_, ptr_};
+enum class sType {unknown_, object_, int_, uint_, float_, double_, str_, vec_, vec_int_, vec_uint_, vec_float_, vec_double_, vec_str_, map_, ptr_};
 
 struct Serializable {
 	static std::string depth;
 	bool marked{ false };
 	virtual sType type(){return sType::unknown_;}
 	virtual bool is(sType t){return true;}
-	virtual struct sMap* get_fields(){return nullptr;}
+	virtual struct sObj* get_fields(){return nullptr;}
 };
 
+#define filed(FiledType) std::map<std::string, FiledType>
 #define DEF_SERIALIZABLE(Name, Type, sType_) \
-	struct s ## Name : Serializable { \
+   struct s ## Name : Serializable { \
 		Type n; \
 		s ## Name(){} \
 		s ## Name(Type i):n(i){} \
 		sType type() override {return sType :: sType_;} \
 		bool is(sType t) override {return t == sType::sType_;} \
 	};
-#define filed std::map<std::string, Serializable*>
    DEF_SERIALIZABLE(Int, int, int_)
-   DEF_SERIALIZABLE(Uint, unsigned, uint_)
-   DEF_SERIALIZABLE(Float, float, float_)
-   DEF_SERIALIZABLE(Double, double, double_)
-   DEF_SERIALIZABLE(Str, std::string, str_)
+   DEF_SERIALIZABLE(Str, std::string,   str_)
    DEF_SERIALIZABLE(Ptr, Serializable*, ptr_)
-   DEF_SERIALIZABLE(Map, filed, map_)
+   DEF_SERIALIZABLE(Map, filed(Serializable*), map_)
+   DEF_SERIALIZABLE(Obj, filed(Serializable*), object_)
+   DEF_SERIALIZABLE(Uint, unsigned, uint_)
+   DEF_SERIALIZABLE(Float,  float, float_)
+   DEF_SERIALIZABLE(Double, double, double_)
+   DEF_SERIALIZABLE(VecInt,    std::vector<int>,      vec_int_   )
+   DEF_SERIALIZABLE(VecUint,   std::vector<unsigned>, vec_uint_  )
+   DEF_SERIALIZABLE(VecFloat,  std::vector<float>,    vec_float_ )
+   DEF_SERIALIZABLE(VecDouble, std::vector<double>,   vec_double_)
 #undef field
 #undef DEF_SERIALIZABLE
 
 struct sVec : Serializable {
   std::vector<Serializable*> n;
   sVec() {}
-  sVec(std::vector<Serializable> i):n { for (auto& it : n)it->marked = true; }
+  sVec(std::vector<Serializable*> i):n(i) { for (auto& it : n) it->marked = true; }
   ~sVec() { for(auto& it : n) it->marked = false; }
   sType type() override {return sType::vec_;}
   bool is(sType t) override {return t == sType::vec_;}
@@ -55,14 +60,13 @@ static std::ostream& operator << (std::ostream& s, sDouble& i) {s << i.n; return
 static std::ostream& operator << (std::ostream& s, sStr& i) {s << i.n; return s;}
 static std::ostream& operator << (std::ostream& s, sPtr& i) {s << i.n; i.n->marked = true; /*if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/ return s;}
 static std::ostream& operator << (std::ostream& s, sVec& l);
-static std::ostream& operator << (std::ostream& s, sMap& l);
+static std::ostream& operator << (std::ostream& s, sObj& l);
 #define INCASE(Name, sType_, val) case sType::sType_: s << *reinterpret_cast<s ## Name*>(val); s << '\n'; break;
 #define CASES(val) \
 	switch(val->type()) { \
 		INCASE(Int, int_, val) INCASE(Uint, uint_, val) INCASE(Float, float_, val) \
-		INCASE(Str, str_, val) INCASE(Vec, vec_, val) INCASE(Map, map_, val) \
+		INCASE(Str, str_, val) INCASE(Vec, vec_, val) INCASE(Obj, object_, val) \
 		INCASE(Double, double_, val) \
-		case sType::object_: l.depth += ' '; s << '\n' << *val->get_fields(); l.depth.pop_back(); break; \
 		default: s << '\n'; break; \
 	}
 
@@ -79,7 +83,7 @@ static std::ostream& operator << (std::ostream& s, sVec& l)
 }
 
 
-static std::ostream& operator << (std::ostream& s, sMap& l)
+static std::ostream& operator << (std::ostream& s, sObj& l)
 {
    for(auto& i : l.n) {
       s << l.depth << i.first;
@@ -91,8 +95,9 @@ static std::ostream& operator << (std::ostream& s, sMap& l)
 }
 
 
-static std::istream& operator >> (std::istream& s, sMap& l)
+static std::istream& operator >> (std::istream& s, sObj& l)
 {
+   std::vector<sObj*> obj_stack;
    std::vector<sMap*> map_stack;
    std::vector<sVec*> vec_stack;
    std::vector<sInt*> int_stack;
@@ -107,8 +112,8 @@ static std::istream& operator >> (std::istream& s, sMap& l)
    size_t depth = 0, prew_depth = 0;
    bool is_key = true, is_next_map = false;
 
-   map_stack.push_back(&l);
-   type_stack.push_back(sType::map_);
+   obj_stack.push_back(&l);
+   type_stack.push_back(sType::object_);
 
    while (!s.eof()) {
       std::cout << "bf: " << bf << std::endl;
@@ -126,24 +131,25 @@ static std::istream& operator >> (std::istream& s, sMap& l)
                prew_depth = depth;
                is_next_map = true;
             }
-            if (type_stack.back() == sType::map_) {
-               sType type = map_stack.back()->n[key]->type();
+            if (type_stack.back() == sType::object_) {
+               sType type = obj_stack.back()->n[key]->type();
+               auto& obj = *obj_stack.back();
                if (type == sType::double_) {
-                  double_stack.push_back(reinterpret_cast<sDouble*>(map_stack.back()->n[key]));
+                  double_stack.push_back(reinterpret_cast<sDouble*>(obj.n[key]));
                } else if (type == sType::float_) {
-                  float_stack.push_back(reinterpret_cast<sFloat*>(map_stack.back()->n[key]));
+                  float_stack.push_back(reinterpret_cast<sFloat*>(obj.n[key]));
                } else if (type == sType::int_) {
-                  int_stack.push_back(reinterpret_cast<sInt*>(map_stack.back()->n[key]));
+                  int_stack.push_back(reinterpret_cast<sInt*>(obj.n[key]));
                } else if (type == sType::uint_) {
-                  uint_stack.push_back(reinterpret_cast<sUint*>(map_stack.back()->n[key]));
+                  uint_stack.push_back(reinterpret_cast<sUint*>(obj.n[key]));
                } else if (type == sType::str_) {
-                  str_stack.push_back(reinterpret_cast<sStr*>(map_stack.back()->n[key]));
+                  str_stack.push_back(reinterpret_cast<sStr*>(obj.n[key]));
                } else if (type == sType::map_) {
-                  map_stack.push_back(reinterpret_cast<sMap*>(map_stack.back()->n[key]));
+                  map_stack.push_back(reinterpret_cast<sMap*>(obj.n[key]));
                } else if (type == sType::vec_) {
-                  vec_stack.push_back(reinterpret_cast<sVec*>(map_stack.back()->n[key]));
+                  vec_stack.push_back(reinterpret_cast<sVec*>(obj.n[key]));
                } else if (type == sType::ptr_) {
-                  ptr_stack.push_back(reinterpret_cast<sPtr*>(map_stack.back()->n[key]));
+                  ptr_stack.push_back(reinterpret_cast<sPtr*>(obj.n[key]));
                }
                key.clear();
                type_stack.push_back(type);
@@ -186,17 +192,18 @@ static std::istream& operator >> (std::istream& s, sMap& l)
          }
       }
    }
+   return s;
 }
 
 
 #undef INCASE
 
-#define sFields sMap _fields_ = {{
+#define sFields sObj _fields_ = {{
 	#define __(Name) {#Name, &(this-> Name)},
 #define sEnd }}; \
 \
 	std::ostream& operator << (std::ostream& s) {s << this->_fields_; return s;} \
-	sMap* get_fields() override {return &this->_fields_;} \
+	sObj* get_fields() override {return &this->_fields_;} \
 	sType type() {return sType::object_;} \
 	bool is(sType t) {return t == sType::object_;}
 
