@@ -1,0 +1,7 @@
+[000000102798F720] : 
+   renderer : OpenGL
+   Im : 000000102798F720
+   fullscreen : 0
+   height : 420
+   title : Test
+   width : 640
