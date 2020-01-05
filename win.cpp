@@ -17,10 +17,10 @@ Win::Win(char const *path_to_win_settings)
 
    if (stat(path_to_win_settings, &buffer)) {
       std::ofstream file(path_to_win_settings);
-      file << *ws.get_fields();
+      ws >> file;
    } else {
       std::ifstream file(path_to_win_settings);
-      file >> *ws.get_fields();
+      ws << file;
    }
    init(ws);
 }
