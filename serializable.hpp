@@ -15,7 +15,7 @@ struct Serializable {
    static Serializable* root_obj;
    static void depth_push() { depth += "   "; }
    static void depth_pop() { depth.substr(0, depth.size() - 3); }
-	bool marked{ false };
+	int marked{ 0 };
 	virtual sType type(){return sType::unknown_;}
 	virtual bool is(sType t){return true;}
 	virtual struct sObj* get_fields(){return nullptr;}
@@ -46,7 +46,8 @@ struct Serializable {
    struct sPtr : Serializable{
    	Serializable* n;
    	sPtr(){}
-      sPtr(Serializable* i) :n(i) { i->marked = true; }
+      sPtr(Serializable* i) :n(i) { if(i != nullptr) ++(i->marked); }
+      ~sPtr() { if (n != nullptr) --(n->marked); }
    	sType type() override {return sType :: ptr_;}
    	bool is(sType t) override {return t == sType::ptr_;}
 	};
@@ -56,8 +57,8 @@ struct Serializable {
 struct sVec : Serializable {
   std::vector<Serializable*> n;
   sVec() {}
-  sVec(std::vector<Serializable*> i):n(i) { for (auto& it : n) it->marked = true; }
-  ~sVec() { for(auto& it : n) it->marked = false; }
+  sVec(std::vector<Serializable*> i):n(i) { for (auto& it : n) ++(it->marked); }
+  ~sVec() { for(auto& it : n) --(it->marked); }
   sType type() override {return sType::vec_;}
   bool is(sType t) override {return t == sType::vec_;}
 };
