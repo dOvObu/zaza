@@ -7,26 +7,44 @@
 #include <iostream>
 #include "win.hpp"
 
-struct BinTree : Serializable {
+struct BinNode : Serializable {
    sPtr l, r;
-   BinTree(Serializable *l_, Serializable *r_) :l(l_), r(r_) {}
+   BinNode(Serializable *l_, Serializable *r_) :l(l_), r(r_) {}
+
    sFields
-   __(l)
-   __(r)
+   ___(l)
+   ___(r)
    sEnd
+};
+struct BinTree : Serializable {
+   std::vector<BinNode> nodes;
+
+   sFields_of(BinTree)
+   ___vref(nodes)
+   sEnd_
+   
 };
 
 
 int main()
 {
    try {
-      std::vector<BinTree> n;
-      n.push_back({nullptr, nullptr});
-      n.push_back({nullptr, nullptr});
-      n.push_back({&n[n.size() - 1], &n[n.size() - 2]});
-      std::ofstream file;
-      n.back() >> file;
+      BinTree tree;
+      std::vector<BinNode>& nodes = tree.nodes;
+      nodes.push_back({ nullptr, nullptr });
+      nodes.push_back({ nullptr, nullptr });
+      nodes.push_back({ &nodes[nodes.size() - 1], &nodes[nodes.size() - 2] });
+      tree.update_fields();
 
+      {
+         std::ofstream file("window_settings.txt");
+         tree >> file;
+         file.close();
+      }
+      {
+         std::ifstream file("window_settings.txt");
+         std::string str;
+      }
       //Win wnd = {"window_settings.txt"};
       //wnd.run();
 

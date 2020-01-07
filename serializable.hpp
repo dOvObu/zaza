@@ -13,12 +13,23 @@ enum class sType {unknown_, object_, obj_ptr_, int_, uint_, float_, double_, str
 struct Serializable {
 	static std::string depth;
    static Serializable* root_obj;
-   static void depth_push() { depth += "   "; }
-   static void depth_pop() { depth.substr(0, depth.size() - 3); }
+   static std::map<void*, std::vector<std::shared_ptr<struct sVec>>> sVec_pool;
+   static void depth_push() {depth+="   ";}
+   static void depth_pop()
+   {
+      if (depth.size()) {
+         for(size_t i=0;3>i;++i) depth.pop_back();
+      }
+   }
 	int marked{ 0 };
 	virtual sType type(){return sType::unknown_;}
 	virtual bool is(sType t){return true;}
 	virtual struct sObj* get_fields(){return nullptr;}
+   virtual void custom_write(std::ostream& s) {}
+   virtual void custom_read(std::istream& s) {}
+   //virtual void free_vectors_memory() {}
+
+   //~Serializable() { this->free_vectors_memory(); }
 };
 
 #define filed(FiledType) std::map<std::string, FiledType>
@@ -55,22 +66,23 @@ struct Serializable {
 #undef DEF_SERIALIZABLE
 
 struct sVec : Serializable {
-  std::vector<Serializable*> n;
-  sVec() {}
-  sVec(std::vector<Serializable*> i):n(i) { for (auto& it : n) ++(it->marked); }
-  ~sVec() { for(auto& it : n) --(it->marked); }
-  sType type() override {return sType::vec_;}
-  bool is(sType t) override {return t == sType::vec_;}
+   std::vector<Serializable*> n;
+   sVec() {}
+   sVec(std::vector<Serializable*> i):n(i) {for(auto&it:n)++(it->marked);}
+   ~sVec() {for(auto&it:n)--(it->marked);}
+   void push_back(Serializable*i) {n.push_back(i);if(i!=nullptr)++(i->marked);}
+   Serializable* pop_back() {Serializable*i=n.back();n.pop_back();if(i!=nullptr)--(i->marked);return i;}
+   sType type() override {return sType::vec_;}
+   bool is(sType t) override {return t == sType::vec_;}
 };
 
-static std::ostream& operator << (std::ostream &s, sVec      &i) {s << '[' << i.n.size() << '\n'; for(auto& it : i.n) s << '\n' << i.depth << it; return s; s << '\n' << i.depth << ']';}
-static std::ostream& operator << (std::ostream &s, sPtr      &i) {s << i.n; i.n->marked = true; return s;} /*if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/
-static std::ostream& operator << (std::ostream &s, sInt      &i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream &s, sStr      &i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream &s, sUint     &i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream &s, sFloat    &i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream &s, sDouble   &i) {s << i.n; return s;}
-static std::ostream& operator << (std::ostream &s, sVecStr   &i) {for(auto& it : i.n) s << '\n' << i.depth << it; return s;}
+static std::ostream& operator << (std::ostream &s, sPtr      &i) {if(i.n==nullptr)s<<"[]";else{s<<i.n;i.n->marked=true;}return s;} /*if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/
+static std::ostream& operator << (std::ostream &s, sInt      &i) {s<<i.n; return s;}
+static std::ostream& operator << (std::ostream &s, sStr      &i) {s<<i.n; return s;}
+static std::ostream& operator << (std::ostream &s, sUint     &i) {s<<i.n; return s;}
+static std::ostream& operator << (std::ostream &s, sFloat    &i) {s<<i.n; return s;}
+static std::ostream& operator << (std::ostream &s, sDouble   &i) {s<<i.n; return s;}
+static std::ostream& operator << (std::ostream &s, sVecStr   &i) {for(auto&it:i.n) s<<'\n'<<i.depth<<it; return s;}
 static std::ostream& operator << (std::ostream &s, sVecInt   &i) {bool not_first=false;for(auto&it:i.n){if(not_first)s<<',';else{not_first=true;}s<<i.depth<<it;}return s;}
 static std::ostream& operator << (std::ostream &s, sVecUint  &i) {bool not_first=false;for(auto&it:i.n){if(not_first)s<<',';else{not_first=true;}s<<i.depth<<it;}return s;}
 static std::ostream& operator << (std::ostream &s, sVecFloat &i) {bool not_first=false;for(auto&it:i.n){if(not_first)s<<',';else{not_first=true;}s<<i.depth<<it;}return s;}
@@ -98,12 +110,24 @@ std::ostream& operator << (std::ostream& s, sVec& l)
 static std::ostream& operator << (std::ostream& s, sObj& l)
 {
    for(auto& i : l.n) {
-      s << l.depth << i.first;
+      s << Serializable::depth << i.first;
       if (i.second->marked) s << '[' << i.second << ']';
       s << " : ";
       CASES(i.second)
    }
    return s;
+}
+
+static std::ostream& operator << (std::ostream& s, sVec& i) {
+   i.depth_push(); s << '[' << i.n.size() << '\n';
+   bool not_first = false;
+   for (auto& it : i.n) {
+      if (it->type() == sType::obj_ptr_) {
+         if (not_first) s << "---\n"; else not_first = true;
+         reinterpret_cast<sObj*>(it)->custom_write(s);
+      }
+   }
+   s << ']'; i.depth_pop(); return s;
 }
 
 
@@ -229,34 +253,80 @@ static std::istream& operator << (std::istream& s, sObj& l)
          str_stack.back()->n = bf;
          str_stack.pop_back();
       } else if (type == sType::ptr_) {
-         ptr_stack.back()->n = marker_to_ptr[bf];
-         ptr_stack.back()->n->marked = true;
+         if (bf == "[]") {
+            ptr_stack.back()->n = nullptr;
+         } else {
+            (ptr_stack.back()->n = marker_to_ptr[bf])->marked = true;
+         }
          ptr_stack.pop_back();
       }
    }
    return s;
 }
-
-
 #undef INCASE
 
+
+template<typename T> sVec* ___vec_to_sVec(void* ths, std::vector<T>& v)
+{
+   sVec* sv;
+   if (!Serializable::sVec_pool.count(ths)) Serializable::sVec_pool[ths] = {};
+   Serializable::sVec_pool[ths].push_back(std::shared_ptr<sVec>(sv = new sVec()));
+   for (auto& it : v) sv->push_back(reinterpret_cast<Serializable*>(&it));
+   return sv;
+}
 #define sFields sObj _fields_ = {{
-	#define __(Name) {#Name, &(this-> Name)},
-#define sEnd }}; \
-	std::ostream& operator >> (std::ostream &s) { if(marked) {s << depth << '[' << this << "] : \n"; depth += "   ";} s << this->_fields_; depth.substr(0,depth.size()-3); return s;} \
-	std::istream& operator << (std::istream &s) {                     \
-      {  std::string bf;                                             \
-         std::getline(s,bf);                                         \
-         auto opn=bf.find('['), cls=bf.find(']'), coln=bf.find(':'); \
-         if(coln > opn && coln > cls && cls > opn) {                 \
-            root_obj = this; depth = bf.substr(opn+1, cls-opn-1);    \
-         }                                                           \
-      } s << this->_fields_; depth.clear(); return s;                \
-   }                                                                 \
-	sObj* get_fields() override {return &this->_fields_;}             \
-	sType type() {return sType::obj_ptr_;}                            \
-	bool is(sType t) {return t == sType::obj_ptr_;}
+#define sFields_of(Name)                                                           \
+   sObj _fields_;                                                                  \
+                                                                                   \
+   ~ ## Name() { rm_sVecs_from_pool(); }                                           \
+                                                                                   \
+   void rm_sVecs_from_pool()                                                       \
+   {                                                                               \
+      if(Serializable::sVec_pool.count(this)) Serializable::sVec_pool.erase(this); \
+   }                                                                               \
+                                                                                   \
+   void update_fields() {                                                          \
+      rm_sVecs_from_pool();                                                        \
+      _fields_ = {{
 
+#define ___(Name) {#Name, &(this-> Name)},
+#define ___vref(Name) {#Name, ___vec_to_sVec(this, this-> Name)},
+#define ____sEnd                                               \
+	std::ostream& operator >> (std::ostream &s)                 \
+   {                                                           \
+      if (marked) {                                            \
+         s << depth << '[' << this << "] : \n";                \
+         depth_push();                                         \
+      }                                                        \
+      s << this->_fields_;                                     \
+      depth.substr(0,depth.size()-3);                          \
+      if(marked)depth_pop();                                   \
+      return s;                                                \
+   }                                                           \
+                                                               \
+	std::istream& operator << (std::istream &s)                 \
+   {                                                           \
+      {                                                        \
+         std::string bf;                                       \
+         std::getline(s,bf);                                   \
+         size_t opn=bf.find('[');                              \
+         size_t cls=bf.find(']');                              \
+         size_t coln=bf.find(':');                             \
+         if(coln > opn && coln > cls && cls > opn) {           \
+            root_obj = this;                                   \
+         }                                                     \
+      }                                                        \
+      s << this->_fields_;                                     \
+      return s;                                                \
+   }                                                           \
+                                                               \
+	sObj* get_fields() override {return &this->_fields_;}       \
+	sType type() {return sType::obj_ptr_;}                      \
+	bool is(sType t) {return t == sType::obj_ptr_;}             \
+   void custom_write(std::ostream& s) override {(*this) >> s;}
+#define sEnd }}; ____sEnd
+#define sEnd_ }}; } ____sEnd
 
+//#define sEnd_ }};}
 
 #endif // SERIALIZABLE_HPP

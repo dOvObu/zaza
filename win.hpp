@@ -20,12 +20,12 @@ struct WinSettings : Serializable {
    sPtr  Im       = { this };
 
    sFields
-   __(title)
-   __(renderer)
-   __(width)
-   __(height)
-   __(fullscreen)
-   __(Im)
+   ___(title)
+   ___(renderer)
+   ___(width)
+   ___(height)
+   ___(fullscreen)
+   ___(Im)
    sEnd
 };
 
