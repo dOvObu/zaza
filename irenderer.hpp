@@ -1,6 +1,6 @@
 #ifndef IRENDERER_HPP
 #define IRENDERER_HPP
-#include <gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 struct IRenderer {
    virtual void setup(glm::uvec2 window_size, int &width, int &height, char const *title, bool fullscreen) = 0;
