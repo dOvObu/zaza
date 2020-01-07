@@ -63,7 +63,6 @@ struct sVec : Serializable {
   bool is(sType t) override {return t == sType::vec_;}
 };
 
-//std::vector<std::unique_ptr<Serializable>> serializable_pool;
 static std::ostream& operator << (std::ostream &s, sVec      &i) {s << '[' << i.n.size() << '\n'; for(auto& it : i.n) s << '\n' << i.depth << it; return s; s << '\n' << i.depth << ']';}
 static std::ostream& operator << (std::ostream &s, sPtr      &i) {s << i.n; i.n->marked = true; return s;} /*if (!i.shown.count(i.n)) i.ptrs.insert(i.n);*/
 static std::ostream& operator << (std::ostream &s, sInt      &i) {s << i.n; return s;}
@@ -87,9 +86,14 @@ static std::ostream& operator << (std::ostream &s, sObj      &l);
 		default: s << '\n'; break; \
 	}
 
-/* static std::ostream& operator << (std::ostream& s, sVec& l) {
-	for(auto& i : l.n) { s << l.depth; CASES(i) } return s;
-} */
+/*static
+std::ostream& operator << (std::ostream& s, sVec& l)
+{
+   for(auto& i : l.n) {
+      s << l.depth; CASES(i)
+   }
+   return s;
+}*/
 
 static std::ostream& operator << (std::ostream& s, sObj& l)
 {
@@ -239,20 +243,18 @@ static std::istream& operator << (std::istream& s, sObj& l)
 #define sFields sObj _fields_ = {{
 	#define __(Name) {#Name, &(this-> Name)},
 #define sEnd }}; \
-\
 	std::ostream& operator >> (std::ostream &s) { if(marked) {s << depth << '[' << this << "] : \n"; depth += "   ";} s << this->_fields_; depth.substr(0,depth.size()-3); return s;} \
-\
-	std::istream& operator << (std::istream &s) {                    \
-      { std::string bf;                                             \
-      std::getline(s,bf);                                           \
-         auto opn=bf.find('['), cls=bf.find(']'), coln=bf.find(':');\
-         if(coln > opn && coln > cls && cls > opn) {                \
-            root_obj = this; depth = bf.substr(opn+1, cls-opn-1);   \
-         }                                                          \
-      } s << this->_fields_; depth.clear(); return s;}              \
-\
-	sObj* get_fields() override {return &this->_fields_;} \
-	sType type() {return sType::obj_ptr_;} \
+	std::istream& operator << (std::istream &s) {                     \
+      {  std::string bf;                                             \
+         std::getline(s,bf);                                         \
+         auto opn=bf.find('['), cls=bf.find(']'), coln=bf.find(':'); \
+         if(coln > opn && coln > cls && cls > opn) {                 \
+            root_obj = this; depth = bf.substr(opn+1, cls-opn-1);    \
+         }                                                           \
+      } s << this->_fields_; depth.clear(); return s;                \
+   }                                                                 \
+	sObj* get_fields() override {return &this->_fields_;}             \
+	sType type() {return sType::obj_ptr_;}                            \
 	bool is(sType t) {return t == sType::obj_ptr_;}
 
 
