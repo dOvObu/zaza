@@ -1,4 +1,8 @@
 *.exe
+*.pch
+.suo
+*.VC.db
+*.sln
 *.cbp
 *.depend
 *.layout
