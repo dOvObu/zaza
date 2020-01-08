@@ -16,35 +16,36 @@ struct BinNode : Serializable {
    ___(r)
    sEnd
 };
+
 struct BinTree : Serializable {
    std::vector<BinNode> nodes;
 
    sFields_of(BinTree)
    ___vref(nodes)
    sEnd_
-   
 };
 
 
 int main()
 {
    try {
-      BinTree tree;
-      std::vector<BinNode>& nodes = tree.nodes;
-      nodes.push_back({ nullptr, nullptr });
-      nodes.push_back({ nullptr, nullptr });
-      nodes.push_back({ &nodes[nodes.size() - 1], &nodes[nodes.size() - 2] });
-      tree.update_fields();
-
+      BinTree tree, tree1;
       {
+         std::vector<BinNode>& nodes = tree.nodes;
+         nodes.push_back({ nullptr, nullptr });
+         nodes.push_back({ nullptr, nullptr });
+         nodes.push_back({ &nodes[nodes.size() - 1], &nodes[nodes.size() - 2] });
+         tree.update_fields();
+
          std::ofstream file("window_settings.txt");
          tree >> file;
          file.close();
       }
       {
          std::ifstream file("window_settings.txt");
-         std::string str;
+         tree1 << file;
       }
+      std::cin.get();
       //Win wnd = {"window_settings.txt"};
       //wnd.run();
 

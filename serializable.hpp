@@ -27,32 +27,29 @@ struct Serializable {
 	virtual struct sObj* get_fields(){return nullptr;}
    virtual void custom_write(std::ostream& s) {}
    virtual void custom_read(std::istream& s) {}
-   //virtual void free_vectors_memory() {}
-
-   //~Serializable() { this->free_vectors_memory(); }
 };
 
 #define filed(FiledType) std::map<std::string, FiledType>
-#define DEF_SERIALIZABLE(Name, Type, sType_) \
-   struct s ## Name : Serializable { \
-		Type n; \
-		s ## Name(){} \
-		s ## Name(Type i):n(i){} \
-		sType type() override {return sType :: sType_;} \
+#define DEF_SERIALIZABLE(Name, Type, sType_)           \
+   struct s ## Name : Serializable {                    \
+		Type n;                                            \
+		s ## Name(){}                                       \
+		s ## Name(Type i):n(i){}                             \
+		sType type() override {return sType :: sType_;}       \
 		bool is(sType t) override {return t == sType::sType_;} \
 	};
-   DEF_SERIALIZABLE(Int, int, int_)
-   DEF_SERIALIZABLE(Str, std::string,   str_)
-   DEF_SERIALIZABLE(Map, filed(Serializable*), map_)
+   DEF_SERIALIZABLE(Int, int        , int_   )
+   DEF_SERIALIZABLE(Str, std::string, str_   )
+   DEF_SERIALIZABLE(Map, filed(Serializable*), map_   )
    DEF_SERIALIZABLE(Obj, filed(Serializable*), object_)
-   DEF_SERIALIZABLE(Uint,   unsigned, uint_  )
-   DEF_SERIALIZABLE(Float,  float,    float_ )
-   DEF_SERIALIZABLE(Double, double,   double_)
-   DEF_SERIALIZABLE(VecInt,    std::vector<int>,      vec_int_   )
+   DEF_SERIALIZABLE(Uint  , unsigned, uint_  )
+   DEF_SERIALIZABLE(Float , float   , float_ )
+   DEF_SERIALIZABLE(Double, double  , double_)
    DEF_SERIALIZABLE(VecStr, std::vector<std::string>, vec_str_   )
-   DEF_SERIALIZABLE(VecUint,   std::vector<unsigned>, vec_uint_  )
-   DEF_SERIALIZABLE(VecFloat,  std::vector<float>,    vec_float_ )
-   DEF_SERIALIZABLE(VecDouble, std::vector<double>,   vec_double_)
+   DEF_SERIALIZABLE(VecInt   , std::vector<int>     , vec_int_   )
+   DEF_SERIALIZABLE(VecUint  , std::vector<unsigned>, vec_uint_  )
+   DEF_SERIALIZABLE(VecFloat , std::vector<float>   , vec_float_ )
+   DEF_SERIALIZABLE(VecDouble, std::vector<double>  , vec_double_)
 
    struct sPtr : Serializable{
    	Serializable* n;
@@ -168,6 +165,10 @@ static std::istream& operator << (std::istream& s, sObj& l)
             if (c == ' ' || c == '\t') {
                continue;
             }
+            if (c == ',') {
+               
+               type_stack.pop_back();
+            }
             if (c == '[') {
                is_marker = true;
                marker.clear();
@@ -275,58 +276,57 @@ template<typename T> sVec* ___vec_to_sVec(void* ths, std::vector<T>& v)
    return sv;
 }
 #define sFields sObj _fields_ = {{
-#define sFields_of(Name)                                                           \
-   sObj _fields_;                                                                  \
-                                                                                   \
-   ~ ## Name() { rm_sVecs_from_pool(); }                                           \
-                                                                                   \
-   void rm_sVecs_from_pool()                                                       \
-   {                                                                               \
+#define sFields_of(Name)                                                    \
+   sObj _fields_;                                                            \
+                                                                              \
+   ~ ## Name() { rm_sVecs_from_pool(); }                                       \
+                                                                                \
+   void rm_sVecs_from_pool()                                                     \
+   {                                                                              \
       if(Serializable::sVec_pool.count(this)) Serializable::sVec_pool.erase(this); \
-   }                                                                               \
-                                                                                   \
-   void update_fields() {                                                          \
+   }                                                                                \
+                                                                                 \
+   void update_fields() {                                                         \
       rm_sVecs_from_pool();                                                        \
       _fields_ = {{
 
 #define ___(Name) {#Name, &(this-> Name)},
 #define ___vref(Name) {#Name, ___vec_to_sVec(this, this-> Name)},
-#define ____sEnd                                               \
-	std::ostream& operator >> (std::ostream &s)                 \
-   {                                                           \
-      if (marked) {                                            \
-         s << depth << '[' << this << "] : \n";                \
-         depth_push();                                         \
-      }                                                        \
-      s << this->_fields_;                                     \
-      depth.substr(0,depth.size()-3);                          \
-      if(marked)depth_pop();                                   \
-      return s;                                                \
-   }                                                           \
-                                                               \
-	std::istream& operator << (std::istream &s)                 \
-   {                                                           \
-      {                                                        \
-         std::string bf;                                       \
-         std::getline(s,bf);                                   \
-         size_t opn=bf.find('[');                              \
-         size_t cls=bf.find(']');                              \
-         size_t coln=bf.find(':');                             \
-         if(coln > opn && coln > cls && cls > opn) {           \
-            root_obj = this;                                   \
-         }                                                     \
-      }                                                        \
-      s << this->_fields_;                                     \
-      return s;                                                \
-   }                                                           \
-                                                               \
-	sObj* get_fields() override {return &this->_fields_;}       \
+#define ________sEnd____                       \
+	std::ostream& operator >> (std::ostream &s)  \
+   {                                             \
+      if (marked) {                               \
+         s << depth << '[' << this << "] : \n";    \
+         depth_push();                              \
+      }                                              \
+      s << this->_fields_;                            \
+      depth.substr(0,depth.size()-3);                  \
+      if(marked)depth_pop();                            \
+      return s;                                          \
+   }                                                      \
+                                                           \
+	std::istream& operator << (std::istream &s)              \
+   {                                                         \
+      {                                                       \
+         std::string bf;                         \
+         std::getline(s,bf);                      \
+         size_t opn =bf.find('[');                 \
+         size_t cls =bf.find(']');                  \
+         size_t coln=bf.find(':');                   \
+         if(coln > opn && coln > cls && cls > opn) {  \
+            root_obj = this;                           \
+         }                                              \
+      }                                                  \
+      s << this->_fields_;                                \
+      return s;                                            \
+   }                                                        \
+                                                             \
+	sObj* get_fields() override {return &this->_fields_;}      \
 	sType type() {return sType::obj_ptr_;}                      \
-	bool is(sType t) {return t == sType::obj_ptr_;}             \
+	bool is(sType t) {return t == sType::obj_ptr_;}              \
    void custom_write(std::ostream& s) override {(*this) >> s;}
-#define sEnd }}; ____sEnd
-#define sEnd_ }}; } ____sEnd
+#define sEnd  }};   ________sEnd____
+#define sEnd_ }}; } ________sEnd____
 
-//#define sEnd_ }};}
 
-#endif // SERIALIZABLE_HPP
+#endif // SERIALIZABLE_HPP //
