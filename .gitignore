@@ -4,3 +4,7 @@
 *.layout
 bin/*
 obj/*
+x64/*
+zaza.vcxproj
+zaza.vcxproj.filters
+zaza.vcxproj.user
