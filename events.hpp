@@ -60,7 +60,18 @@ private: \
    std::map<void*,std::function<void(void)>> __pool_of_ ## NAME ## _cbs
 
 
-#define ievent(NAME,CB_ARGS, CALL_ARGS)\
+#define ievent(NAME, TYPE)\
+public: \
+   void NAME(){for(auto& it : _pool_of_ ## NAME ## _cbs)it(*this); for(auto& it : __pool_of_ ## NAME ## _cbs)it.second(*this);} \
+   void subscribe_on_ ## NAME(std::function<void(TYPE&)> const& foo) { _pool_of_ ## NAME ## _cbs.push_back(foo); } \
+   void subscribe_on_ ## NAME(void* key, std::function<void(TYPE&)> const& foo) { __pool_of_ ## NAME ## _cbs.insert({key, foo}); } \
+   void unsubscribe_from_ ## NAME(void* key, std::function<void(TYPE&)> const& foo) { __pool_of_ ## NAME ## _cbs.erase(key); } \
+private: \
+   std::vector<std::function<void(TYPE&)>> _pool_of_ ## NAME ## _cbs; \
+   std::map<void*,std::function<void(TYPE&)>> __pool_of_ ## NAME ## _cbs
+
+
+#define cevent(NAME,CB_ARGS, CALL_ARGS)\
 public: \
    void subscribe_on_ ## NAME(std::function<void##CB_ARGS> const& foo) { _pool_of_ ## NAME ## _cbs.push_back(foo); } \
    void subscribe_on_ ## NAME(void* key, std::function<void##CB_ARGS> const& foo) { __pool_of_ ## NAME ## _cbs.insert({key, foo}); } \
@@ -68,7 +79,8 @@ public: \
    void NAME ## CB_ARGS {for(auto& it : _pool_of_ ## NAME ## _cbs)it ## CALL_ARGS; for(auto& it : __pool_of_ ## NAME ## _cbs)it.second ## CALL_ARGS;} \
 private: \
    std::vector<std::function<void##CB_ARGS>> _pool_of_ ## NAME ## _cbs; \
-   std::map<void*,std::function<void##CB_ARGS>> __pool_of_ ## NAME ## _cbs
+   std::map<void*,std::function<void##CB_ARGS>> __pool_of_ ## NAME ## _cbs;
+
 
 
 #endif // !EVENTS_HPP_INCLUDED
